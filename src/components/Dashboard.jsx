@@ -37,22 +37,51 @@ const Dashboard = () => {
           };
 
           expenses.forEach((exp) => {
+            // Edge case: skip if no participants or payer
+            if (
+              !exp ||
+              !exp.payer ||
+              !Array.isArray(exp.participants) ||
+              exp.participants.length === 0
+            ) {
+              console.warn(
+                "Skipping expense with invalid participants or payer",
+                exp,
+              );
+              return;
+            }
             const totalAmount = Number(exp.totalAmount || exp.amount || 0);
-            const participants = Array.isArray(exp.participants)
-              ? exp.participants
-              : [];
+            if (isNaN(totalAmount) || totalAmount <= 0) {
+              console.warn("Skipping expense with invalid or zero amount", exp);
+              return;
+            }
+            const participants = exp.participants;
             const payer = exp.payer || exp.paidBy;
 
-            // register payer
+            // Edge case: ensure payer is in participants
             const payerId =
               typeof payer === "string"
                 ? payer
                 : payer?._id || payer?.email || JSON.stringify(payer);
+            const payerInParticipants = participants.some((part) => {
+              const user = part.user || part;
+              const userId =
+                typeof user === "string"
+                  ? user
+                  : user?._id || user?.email || JSON.stringify(user);
+              return userId === payerId;
+            });
+            if (!payerInParticipants) {
+              participants.push({ user: payer, amountOwed: 0 });
+            }
+
+            // register payer
             if (!nets[payerId])
               nets[payerId] = { amount: 0, name: ensureUser(payer, payerId) };
 
             const numParticipants = participants.length || 1;
             // determine shares
+            let sumShares = 0;
             participants.forEach((part) => {
               const user = part.user || part;
               const userId =
@@ -65,17 +94,28 @@ const Dashboard = () => {
               let share = 0;
               if (part.amountOwed !== undefined && part.amountOwed !== null) {
                 share = Number(part.amountOwed || 0);
+                if (isNaN(share) || share < 0) share = 0;
               } else if (exp.splitType === "UNEQUAL") {
                 // if UNEQUAL but participant doesn't have amount, skip or treat as 0
                 share = 0;
               } else {
                 share = totalAmount / numParticipants;
               }
-
+              // Precision fix
+              share = Math.round((share + Number.EPSILON) * 100) / 100;
+              sumShares += share;
               // participant owes share
               nets[userId].amount -= share;
             });
-
+            // Edge case: incorrect split totals
+            if (Math.abs(sumShares - totalAmount) > 0.05 * numParticipants) {
+              console.warn(
+                "Split totals do not match total amount",
+                exp,
+                sumShares,
+                totalAmount,
+              );
+            }
             // payer paid the whole amount
             nets[payerId].amount += totalAmount;
           });
@@ -190,34 +230,68 @@ const Dashboard = () => {
         </h3>
         {settlements && settlements.length > 0 ? (
           <div className="list-container">
-            {settlements.map((s, i) => (
-              <div
-                key={i}
-                className="list-item"
-                style={{ borderLeft: "4px solid var(--success)" }}
-              >
-                <div
-                  className="icon-box"
-                  style={{
-                    background: "rgba(16, 185, 129, 0.1)",
-                    color: "var(--success)",
-                  }}
-                >
-                  <CheckCircle size={24} />
-                </div>
-                <div className="item-details">
-                  <div className="title">
-                    {typeof s === "string"
-                      ? s
-                      : `${s.from || s.payer || "Someone"} owes ${s.to || s.payee || "Someone"}`}
+            {settlements.map((s, i) => {
+              // Support both string and object formats for settlements
+              if (typeof s === "string") {
+                // Try to parse string like "A owes B ₹500" to extract names and amount
+                const match = s.match(/^(.*?) owes (.*?) ₹([\d,.]+)/);
+                if (match) {
+                  return (
+                    <div key={i} className="list-item">
+                      <div className="icon-box">
+                        <CheckCircle size={24} />
+                      </div>
+                      <div className="item-details">
+                        <div className="title">
+                          <span style={{ fontWeight: 600 }}>{match[1]}</span>{" "}
+                          owes{" "}
+                          <span style={{ fontWeight: 600 }}>{match[2]}</span>
+                        </div>
+                        <div className="date">Settlement Amount</div>
+                      </div>
+                      <div className="item-amount negative">₹{match[3]}</div>
+                    </div>
+                  );
+                }
+                // fallback
+                return (
+                  <div key={i} className="list-item">
+                    <div className="icon-box">
+                      <CheckCircle size={24} />
+                    </div>
+                    <div className="item-details">
+                      <div className="title">{s}</div>
+                      <div className="date">Settlement Amount</div>
+                    </div>
                   </div>
-                  <div className="date">Optimized Transaction</div>
+                );
+              }
+              return (
+                <div key={i} className="list-item">
+                  <div className="icon-box">
+                    <CheckCircle size={24} />
+                  </div>
+                  <div className="item-details">
+                    <div className="title">
+                      {s.from && s.to ? (
+                        <>
+                          <span style={{ fontWeight: 600 }}>{s.from}</span> owes{" "}
+                          <span style={{ fontWeight: 600 }}>{s.to}</span>
+                        </>
+                      ) : (
+                        "Settlement"
+                      )}
+                    </div>
+                    {s.amount !== undefined && (
+                      <div className="date">Settlement Amount</div>
+                    )}
+                  </div>
+                  {s.amount !== undefined && (
+                    <div className="item-amount negative">₹{s.amount}</div>
+                  )}
                 </div>
-                {s.amount !== undefined && (
-                  <div className="item-amount positive">₹{s.amount}</div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p style={{ color: "var(--text-secondary)" }}>
