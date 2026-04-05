@@ -22,7 +22,10 @@ const Expenses = () => {
 
   const handleDelete = async (id) => {
     try {
-      await fetch(`http://localhost:3000/expenses/${id}`, { method: "DELETE" });
+      await fetch(
+        `https://smart-expense-sharing-backened.onrender.com/expenses/${id}`,
+        { method: "DELETE" },
+      );
       fetchExpenses();
     } catch (error) {
       console.error("Error deleting", error);

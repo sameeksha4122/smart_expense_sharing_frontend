@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { getUsers } from '../services/api';
-import AddUserModal from './AddUserModal';
-import { Plus, User, Trash2 } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { getUsers } from "../services/api";
+import AddUserModal from "./AddUserModal";
+import { Plus, User, Trash2 } from "lucide-react";
 
 const Peoples = () => {
   const [users, setUsers] = useState([]);
@@ -13,7 +13,7 @@ const Peoples = () => {
       if (response?.data) setUsers(response.data);
       else if (Array.isArray(response)) setUsers(response);
     } catch (error) {
-      console.error('Failed to get users', error);
+      console.error("Failed to get users", error);
     }
   };
 
@@ -23,10 +23,13 @@ const Peoples = () => {
 
   const handleDelete = async (id) => {
     try {
-      await fetch(`http://localhost:3000/users/${id}`, { method: 'DELETE' });
+      await fetch(
+        `https://smart-expense-sharing-backened.onrender.com/users/${id}`,
+        { method: "DELETE" },
+      );
       fetchUsersList();
     } catch (error) {
-      console.error('Error deleting user', error);
+      console.error("Error deleting user", error);
     }
   };
 
@@ -40,7 +43,7 @@ const Peoples = () => {
         </button>
       </div>
 
-      <div className="glass-panel" style={{ marginTop: '2rem' }}>
+      <div className="glass-panel" style={{ marginTop: "2rem" }}>
         <div className="list-container">
           {users.length > 0 ? (
             users.map((user) => (
@@ -49,13 +52,19 @@ const Peoples = () => {
                   <User size={24} />
                 </div>
                 <div className="item-details">
-                  <div className="title">{user.name || user.email || 'Unknown'}</div>
-                  <div className="date">{user.email || 'No email provided'}</div>
+                  <div className="title">
+                    {user.name || user.email || "Unknown"}
+                  </div>
+                  <div className="date">
+                    {user.email || "No email provided"}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <button 
-                    className="btn-secondary" 
-                    style={{ padding: '0.4rem', borderColor: 'transparent' }}
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "1rem" }}
+                >
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: "0.4rem", borderColor: "transparent" }}
                     onClick={() => handleDelete(user._id)}
                   >
                     <Trash2 size={20} color="var(--danger)" />
@@ -64,14 +73,16 @@ const Peoples = () => {
               </div>
             ))
           ) : (
-            <p style={{ color: 'var(--text-secondary)' }}>No people added yet.</p>
+            <p style={{ color: "var(--text-secondary)" }}>
+              No people added yet.
+            </p>
           )}
         </div>
       </div>
 
       {isModalOpen && (
-        <AddUserModal 
-          onClose={() => setIsModalOpen(false)} 
+        <AddUserModal
+          onClose={() => setIsModalOpen(false)}
           onSuccess={() => {
             setIsModalOpen(false);
             fetchUsersList();
